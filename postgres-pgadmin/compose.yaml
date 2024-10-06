@@ -1,0 +1,88 @@
+# WARNING: This configuration is for local development. Do not use it in a production deployment.
+#
+# This configuration supports basic configuration using environment variables or an .env file
+# The following variables are supported:
+#
+# POSTGRESQL_IMAGE_NAME           - This optional environment variable is used to determine the docker image name used to run PostgreSQL
+#                                   Default: postgres:13 [https://hub.docker.com/_/postgres]
+# POSTGRES_USER                   - This environment variable is used in conjunction with POSTGRES_PASSWORD to set a user and its password.
+#                                   Default: postgres
+# POSTGRES_DB                     - This optional environment variable can be used to define a different name for the default database that is created when the image is first started.
+#                                 - Default: postgres
+# POSTGRESQL_PORT                 - This environment variable is used to determine the port to expose the service.
+#                                 - Default: 5432
+# POSTGRES_PASSWORD               - This environment variable sets the superuser password for PostgreSQL.
+#
+#
+# PGADMIN_IMAGE_NAME              - Docker image naame used to run PgAdmin
+#                                   Default: dpage/pgadmin4 [https://hub.docker.com/r/dpage/pgadmin4]
+# PGADMIN_PORT                    - This environment variable is used to determine the port to expose the service.
+#                                 - Default: 5050
+# PGADMIN_DEFAULT_EMAIL           - This is the email address used when setting up the initial administrator account to login to pgAdmin. This variable is required and must be set at launch time.
+#
+# PGADMIN_DEFAULT_PASSWORD        - This is the password used when setting up the initial administrator account to login to pgAdmin. This variable is required and must be set at launch time.
+#
+#
+# PROJ_DIR                        - This is to specify where your project directory is or where you need your volume data stored
+#                                 - Default: $PWD
+#
+#
+# Feel free to modify this file to suit your needs.
+
+
+x-volume-common:
+  &volume-common
+  driver: local
+  driver_opts:
+    &volume-driver-opts-common
+    type: none
+    o: bind
+
+services:
+  postgresdb:
+    image: ${POSTGRESQL_IMAGE_NAME:-postgres:13}
+    container_name: postgresdb
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?error}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: on-failure:3
+    ports:
+      - "${POSTGRESQL_PORT:-5432}:5432"
+  
+  pgadmin:
+    image: ${PGADMIN_IMAGE_NAME:-dpage/pgadmin4}
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:?error}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?error}
+    volumes:
+      - pgadmin-volume:/var/lib/pgadmin
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    restart: on-failure:3
+    depends_on:
+      postgresdb:
+        condition: service_healthy
+        restart: true
+    
+
+volumes:
+  postgres-db-volume:
+    <<: *volume-common
+    driver_opts:
+      <<: *volume-driver-opts-common
+      device: ${PROJ_DIR:-.}/postgres-db-data
+
+  pgadmin-volume:
+    <<: *volume-common
+    driver_opts:
+      <<: *volume-driver-opts-common
+      device: ${PROJ_DIR:-.}/pgadmin-data
