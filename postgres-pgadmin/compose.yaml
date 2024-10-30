@@ -48,6 +48,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
+      - pg-seed-volume:/mnt
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
@@ -86,3 +87,9 @@ volumes:
     driver_opts:
       <<: *volume-driver-opts-common
       device: ${PROJ_DIR:-.}/pgadmin-data
+
+  pg-seed-volume:
+    <<: *volume-common
+    driver_opts:
+      <<: *volume-driver-opts-common
+      device: ${PROJ_DIR:-.}/pg-se ed-data
